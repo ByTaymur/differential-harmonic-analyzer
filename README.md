@@ -78,25 +78,25 @@ $$Z_0 = \sqrt{\frac{L}{C}} = \sqrt{\frac{0.045}{0.000044}} \approx \mathbf{32\ \
 
 ---
 
-#### Step 2c / Adım 2c — The Impedance Wall & KCL Solution / Empedans Duvarı ve KCL Çözümü
+#### Step 2c / Adım 2c — The Impedance Wall & Capacitor as a Source / Empedans Duvarı ve Kapasitörün Kaynak Olması
 
-**EN:** The 45 mH inductor creates a frequency-dependent impedance wall that traps the DUT's harmonic currents _inside_ the LC network.
+**EN:** The massive 45 mH inductor acts as an impedance wall at high frequencies. It prevents the device from drawing its required harmonic currents from the grid. Because of this blockage, the parallel-connected **capacitor becomes the local AC source** providing those harmonic currents.
 
-**TR:** 45 mH bobin, DUT'un harmonik akımlarını LC ağı _içinde_ hapseden frekansa bağlı bir empedans duvarı oluşturur.
+**TR:** Devasa 45 mH bobin, yüksek frekanslarda bir empedans duvarı görevi görerek cihazın şebekeden harmonik akım çekmesini tamamen engeller. Bu engelleme yüzünden, paralel bağlanan **kapasitör yüksek frekanslı akımlar için bir "akım kaynağı" haline gelir**.
 
-| Frekans / Frequency       | X_L (bobin/inductor) | X_C (kapasitör/capacitor) | Akım yolu / Current path                                      |
-| ------------------------- | -------------------- | ------------------------- | ------------------------------------------------------------- |
-| 50 Hz (temel/fundamental) | 14.1 Ω               | 72.3 Ω                    | Serbestçe / Freely through L → DUT                            |
-| 250 Hz (5. Harmonik/5th)  | **70.7 Ω**           | **14.4 Ω**                | L tarafından bloke, C'ye sapar / Blocked by L, diverts into C |
+| Frekans / Frequency       | X_L (bobin/inductor) | X_C (kapasitör/capacitor) | Akım yolu / Current path                                                         |
+| ------------------------- | -------------------- | ------------------------- | -------------------------------------------------------------------------------- |
+| 50 Hz (temel/fundamental) | 14.1 Ω               | 72.3 Ω                    | Ana enerjiyi şebeke (L üzerinden) sağlar / Grid provides mains power via L       |
+| 250 Hz (5. Harmonik/5th)  | **70.7 Ω**           | **14.4 Ω**                | Kapasitör (C) harmonik akım kaynağı olur / Capacitor (C) acts as harmonic source |
 
-**KCL düğüm denklemi / KCL Node equation:**
+**KCL (Kirchhoff) düğüm denklemi / KCL Node equation:**
 
 $$I_{\text{DUT harmonikleri}} = I_{\text{giriş}} - I_{\text{kapasitör}}$$
 $$I_{\text{DUT harmonics}} = I_{\text{input}} - I_{\text{capacitor}}$$
 
-**EN:** CH1 CT measures `I_input`, CH2 CT measures `I_capacitor`. The software subtracts them digitally to reconstruct the DUT's **pure harmonic signature**, isolated from grid pollution.
+**EN:** CH1 CT measures `I_input`, CH2 CT measures the changing `I_capacitor`. The software subtracts them digitally ($CH1 - CH2$) to reconstruct the DUT's **pure harmonic signature**, completely isolated from grid pollution.
 
-**TR:** CH1 CT `I_giriş`'i, CH2 CT `I_kapasitör`'ü ölçer. Yazılım bu iki sinyali dijital olarak çıkartarak DUT'un şebeke kirliliğinden arındırılmış **saf harmonik imzasını** elde eder.
+**TR:** CH1 CT `I_giriş`'i (şebeke), CH2 CT `I_kapasitör`'ü ölçer. Yazılım bu iki sinyali dijital olarak çıkartarak ($CH1 - CH2$) DUT'un şebeke kirliliğinden arındırılmış **saf harmonik imzasını** elde eder.
 
 ---
 
