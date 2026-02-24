@@ -1,127 +1,194 @@
-# ⚡ İzole Harmonik Analiz Laboratuvarı: Diferansiyel Akım Yöntemi (KCL) ve Kendin Yap (DIY) LC Filtre ile Şebeke Bağımsız THD Ölçümü
+# ⚡ DIY Harmonic Analyzer — Grid-Isolated THD Measurement via KCL
+
+# ⚡ DIY Harmonik Analizör — KCL ile Şebekeden İzole THD Ölçümü
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue)
-![Hardware](https://img.shields.io/badge/hardware-DIY_LC_Filter-orange)
+![Standard](https://img.shields.io/badge/standard-IEC%2061000--3--2-orange)
+![Hardware](https://img.shields.io/badge/hardware-DIY%20LC%20Filter-green)
 
-Bu proje, şebeke gerilimindeki (220V AC) mevcut kirlilikten ve arka plan gürültüsünden etkilenmeden, Non-Linear (Doğrusal Olmayan) yüklerin (test edilen cihaz - DUT) şebekeye bastığı saf harmonik emisyonlarını ölçmek amacıyla geliştirilmiş donanım ve yazılım mimarisini içermektedir.
-
-Profesyonel laboratuvarlardaki on binlerce dolarlık "AC Grid Simulator" (Şebeke Simülatörü) cihazlarına alternatif olarak geliştirilen bu sistem; temel fizik yasalarını (Empedans ve Kirchhoff Akım Yasası), yaratıcı donanım hack'lerini (damacana ile sıvı soğutma) ve dijital sinyal işlemeyi (DSP) bir araya getiren tam teşekküllü bir Ar-Ge çalışmasıdır.
-
----
-
-## 📋 İçindekiler
-1. [Projenin Amacı ve Karşılaşılan Temel Problem](#1-projenin-amacı-ve-karşılaşılan-temel-problem)
-2. [Teorik Altyapı ve Matematiksel Modeller](#2-teorik-altyapı-ve-matematiksel-modeller)
-3. [Empedans Duvarı ve Diferansiyel Akım Yöntemi (KCL)](#3-empedans-duvarı-ve-diferansiyel-akım-yöntemi-kcl)
-4. [Mühendislik Çözümleri ve DIY Donanım Hack'leri](#4-mühendislik-çözümleri-ve-diy-donanım-hackleri)
-5. [Yazılım Mimarisi (DSP) ve Standartlar](#5-yazılım-mimarisi-dsp-ve-standartlar)
-6. [Kurulum ve Kullanım](#6-kurulum-ve-kullanım)
+> _A full-stack power quality measurement system built from first principles — without a $30,000 AC grid simulator._
+>
+> _Temel fizik yasalarından yola çıkarak, 30.000$'lık şebeke simülatörü olmadan geliştirilmiş tam donanımlı bir güç kalitesi ölçüm sistemi._
 
 ---
 
-## 1. Projenin Amacı ve Karşılaşılan Temel Problem
+## 🎯 The Problem / Problem
 
-**Problem (Sebep):** Şebekeden (Grid) hiçbir akım çekilmese dahi, hatta bulunan diğer güç elektroniği cihazları nedeniyle şebeke gerilimi saf bir sinüs dalgası olmaktan uzaktır. Bu durum, herhangi bir yük olmadan şebekeden alınan örnekte net bir şekilde görülmektedir.
+**EN:** Testing a device for harmonic emission (IEC 61000-3-2) requires a **clean sinusoidal reference voltage**. The real-world grid is never clean — it carries pollution from every other device on the network. If you measure your DUT's harmonics directly from the grid, you are measuring the grid's dirt, not your device.
 
-**Sonuç:** Bir cihazın IEC 61000-3-2 standartlarına uygunluğunu test etmek istediğimizde, şebekenin kendi kirliliği osiloskop ölçümlerini manipüle ederek yanıltıcı sonuçlar verir.
-
-**Çözüm İhtiyacı:** Cihazın şebekeye ne kadar harmonik bastığını kesin olarak ölçebilmek için, öncelikle cihaza **temiz (izole) bir referans gerilimi** sağlanması gerekmektedir.
+**TR:** IEC 61000-3-2 standardına göre harmonik emisyon testi yapabilmek için **temiz bir sinüs kaynağı** gereklidir. Gerçek şebeke hiçbir zaman temiz değildir — diğer cihazların kirliliğini taşır. DUT'u doğrudan şebekeden ölçerseniz, cihazınızın değil şebekenin kirliliğini ölçmüş olursunuz.
 
 ---
 
-## 2. Teorik Altyapı ve Matematiksel Modeller
-
-### 2.1. LC Alçak Geçiren Filtre (Low Pass Filter) Tasarımı
-Şebekedeki yüksek frekanslı gürültüleri engellemek amacıyla bir LC Alçak Geçiren Filtre tasarlanmıştır. 
-
-Tasarım parametreleri ve kullanılan malzemeler:
-* **Endüktans (L):** **45 mH** (0.045 H)
-* **Kapasitans (C):** **44 µF** (2 adet 22 µF kapasitörün paralel bağlanmasıyla elde edilmiştir)
-
-**1. Kesim Frekansı Hesabı:**
-Filtrenin hangi frekanstan sonrasını engellemeye başlayacağını belirleyen formül:
-$$f_c = \frac{1}{2\pi\sqrt{LC}}$$
-
-Değerler yerine konulduğunda:
-$$f_c = \frac{1}{2 \cdot 3.1415 \cdot \sqrt{0.045 \cdot 0.000044}}$$
-**Sonuç:** Yaklaşık **113.1 Hz**
-
-*Açıklama:* Bu filtre, 113 Hz üzerindeki gürültüleri sönümleyerek tıpkı bir subwoofer (bas) filtresi mantığıyla çalışır. Şebekenin 50 Hz temel frekansını geçirirken, harmonikleri bloke ederek şebeke kirliliğinden arındırılmış bir ortam oluşturur.
-
-**2. Karakteristik Empedans Hesabı:**
-Filtrenin ideal çalışması için devrenin karakteristik empedansı da hesaplanmıştır:
-$$Z_0 = \sqrt{\frac{L}{C}} = \sqrt{\frac{0.045}{0.000044}}$$
-**Sonuç:** Yaklaşık **32 Ω**
+## 🧠 Two Core Ideas / İki Temel Fikir
 
 ---
 
-## 3. Empedans Duvarı ve Diferansiyel Akım Yöntemi (KCL)
+### Part 1 / Bölüm 1 — A €2 Current Probe (CT + 100Ω Burden Resistor) / €2'lik Akım Probu
 
-Filtreleme şebeke kirliliğini engellemede başarılı olmuştur; ancak sisteme seri giren yüksek endüktans (45 mH), cihazın ürettiği harmoniklerin şebekeye doğru akışını engelleyen bir reaktans bariyeri oluşturmuştur. Bu durum, düzgün bir harmonik analizi yapmayı zorlaştırmaktadır.
+**EN:** A standard oscilloscope cannot measure AC current directly. A current transformer (CT) with a **burden resistor** across its secondary terminals solves this instantly.
 
-### 3.1. Frekansa Bağlı Reaktans Analizi
-Endüktif ($X_L$) ve Kapasitif ($X_C$) Reaktans formülleri:
-$$X_L = 2 \cdot \pi \cdot f \cdot L$$
-$$X_C = \frac{1}{2 \cdot \pi \cdot f \cdot C}$$
+**TR:** Standart bir osiloskop doğrudan AC akım ölçemez. Çözüm: Akım trafosunun (CT) sekonder terminallerine bağlanan bir **yük direnci (burden resistor)**.
 
-**1. 50 Hz Temel Frekans için:**
-* $X_L$ = 2 · 3.14 · 50 · 0.045 = **14.1 Ω**
-* $X_C$ = 1 / (2 · 3.14 · 50 · 0.000044) = **72.3 Ω**
-* *Durum:* Şebekeden gelen 50 Hz enerjinin empedansı bobin üzerinde düşüktür, cihaz rahatça beslenir.
+```
+AC Hat ──[CT 5A]──
+                 |
+               100Ω   ← V_ölçüm / V_measured
+                 |
+               GND
+```
 
-**2. 250 Hz (5. Harmonik) için (Cihazın ürettiği gürültü):**
-* $X_L$ = 2 · 3.14 · 250 · 0.045 = **70.7 Ω**
-* $X_C$ = 1 / (2 · 3.14 · 250 · 0.000044) = **14.4 Ω**
-* *Durum:* Cihazın ürettiği 250 Hz'lik akım şebekeye geri dönmek istediğinde **70.7 Ω** gibi yüksek bir duvarla karşılaşır. Akım en düşük dirençli yolu seçeceği için zorunlu olarak empedansı **14.4 Ω** olan kapasitör hattına yönelir.
+**Formül / Formula:**
 
-### 3.2. Çözüm: Diferansiyel Akım ve Harmonik Döngüsü (KCL)
-Harmonik akımların empedans sebebiyle şebekeye gidemeyip kapasitöre saptığı öngörülerek "Fark Akımı" yöntemi uygulanmıştır.
+```
+V_measured = I_line × (1/ratio) × R_burden
+Ölçek / Scale:  5A → 0.25V  →  duyarlılık / sensitivity = 20 A/V
+```
 
-Düğüm (Node) noktasındaki formül:
-$$I_{Giris} = I_{Kapasitor} + I_{Cihaz}$$
+Galvanik olarak **izole**, osiloskop uyumlu bir akım probu. Yazılım `ratio = 20 A/V` dönüşümünü otomatik uygular.
 
-Cihazın harmonik imzasını bulmak için kullanılan diferansiyel denklem:
-**Cihaz Harmonikleri = Giriş Akımı - Kapasitör Akımı**
+_A galvanically **isolated**, oscilloscope-compatible current probe. The software applies the `ratio = 20 A/V` factor automatically._
 
 ---
 
-## 4. Mühendislik Çözümleri ve DIY Donanım Hack'leri
+### Part 2 / Bölüm 2 — Building a Grid-Isolated Harmonic Lab / Şebekeden İzole Harmonik Lab Kurulumu
 
-Proje, düşük maliyetli ve erişilebilir malzemelerin mühendislik pratikleriyle birleştirilmesiyle kurulmuştur. Laboratuvar ortamı olmadan ev/atölye şartlarında geliştirilen çözümler şunlardır:
+#### Step 2a / Adım 2a — LC Low-Pass Filter (DIY Reactor) / LC Alçak Geçiren Filtre (DIY Reaktör)
 
-### 4.1. Reaktör Olarak Standart Rulo Kablo Kullanımı
-* **Tasarım:** Endüstriyel bir reaktör satın almak yerine, piyasada kolayca bulunabilen **300 metre uzunluğunda, 0.75 mm kesitli bakır kablo** kullanılmıştır. 
-* **Avantaj:** Kablo, makarasından sağılmadan kendi sarmal yapısıyla devrede bırakılarak devasa bir hava nüveli bobin elde edilmiş ve hedeflenen **45 mH** değerine bu sayede ulaşılmıştır.
+**EN:** Instead of buying an industrial reactor, a **300-metre, 0.75mm² copper cable reel** is used as-is (without unwinding). Its natural inductance is approximately **45 mH**. Two 22 µF capacitors in parallel give **44 µF**.
 
-### 4.2. "Damacana" ile Pasif Sıvı Soğutma (Thermal Hack)
-* **Problem:** Kullanılan bobinin (300m kablo) üzerinden akım geçtiğinde ciddi bir ısınma problemi ortaya çıkar.
-* **Çözüm:** Bobinin ısınmasını engellemek için olağanüstü bir pasif soğutma yöntemi geliştirilmiştir: Bobin (orijinal yalıtkan poşeti içindeyken), su dolu kesilmiş bir damacana içerisine yerleştirilmiştir. Bu sayede suyun termal kapasitesinden faydalanılarak soğutma sağlanmıştır.
+**TR:** Endüstriyel reaktör satın almak yerine, piyasada kolayca bulunan **300 metre × 0.75 mm² bakır kablo makarası** çözülmeden kullanılmıştır. Doğal endüktansı yaklaşık **45 mH**'dir. 2 × 22 µF kapasitör paralel bağlanmıştır → **44 µF**.
 
-### 4.3. Akım-Gerilim Dönüşümü (CT ve Yük Direnci)
-* **Ölçüm Donanımı:** Sisteme 2 adet **5A akım trafosu (CT)** entegre edilmiştir. 
-* **Çalışma Mantığı:** Osiloskoplar doğrudan akım okuyamadığı için, akım trafolarının çıkışına **100 Ω (100R)** yük direnci (Burden Resistor) bağlanmıştır. Akım probu dönüşüm oranı yazılımda **5A -> 0.25V (20 A/V)** olarak tanımlanmıştır.
+$$f_c = \frac{1}{2\pi\sqrt{LC}} = \frac{1}{2\pi\sqrt{0.045 \times 0.000044}} \approx \mathbf{113 \text{ Hz}}$$
 
----
+**EN:** The filter passes 50 Hz and **blocks harmonics above 113 Hz** — cleaning the grid before it reaches the DUT.
 
-## 5. Yazılım Mimarisi (DSP) ve Standartlar
+**TR:** Filtre 50 Hz'i geçirir, **113 Hz üzerindeki harmonikleri engeller** — DUT'a ulaşmadan önce şebekeyi temizler.
 
-Osiloskop üzerinden gerilim dalga formu olarak `.csv` formatında kaydedilen diferansiyel sensör verileri, Python dilinde geliştirilen **"Profesyonel Harmonik Analizör - Dual Channel Analyzer"** arayüzü ile işlenmektedir.
-
-**Yazılımın Dijital Sinyal İşleme (DSP) Özellikleri:**
-* **Dual Channel Okuma:** Tek `.csv` dosyasından CH1 ve CH2 verilerinin senkronize olarak alınması.
-* **DC Offset ve Filtreleme:** Sinyalden DC bileşenin çıkarılması ve Savitzky-Golay / Lowpass gibi dijital filtreleme opsiyonları.
-* **Matematiksel Ayrıştırma:** Her iki kanalın (Giriş ve Kapasitör) genlikleri dönüştürüldükten sonra "CH1 - CH2" fark sinyalinin yazılımsal olarak hesaplanması.
-* **FFT (Hızlı Fourier Dönüşümü):** Zaman domenindeki sinyalin `scipy.fft` kütüphanesi ile frekans domenine aktarılarak 40. harmoniğe kadar olan spektrumun çıkarılması.
-* **Güç Kalitesi Metrikleri:** Sinyal üzerinden bağımsız olarak THD (Total Harmonic Distortion), TDD (Total Demand Distortion), RMS, Crest Factor (ipk/rms) ve Power Factor hesaplamaları yapılmaktadır.
-* **Otomatik IEC Uyumluluk Testi:** Yazılım içerisinde **IEC 61000-3-2 Class A** standart limitleri tanımlıdır. Analiz edilen cihazın her bir harmoniği limitlerle karşılaştırılarak otomatik **PASS / FAIL** raporu oluşturulur.
+$$Z_0 = \sqrt{\frac{L}{C}} = \sqrt{\frac{0.045}{0.000044}} \approx \mathbf{32\ \Omega}$$
 
 ---
 
-## 6. Kurulum ve Kullanım
+#### Step 2b / Adım 2b — The Cooling Problem / Isınma Problemi
 
-### Gereksinimler
-Bu projeyi çalıştırmak için aşağıdaki kütüphanelere sahip Python 3.8 veya daha üstü bir sürüm gereklidir:
+**EN:** 300 metres of 0.75mm² cable dissipates significant heat under load. Solution: the reel is **submerged in a 19-litre water bottle** (cut open) — passive thermal management using water's high heat capacity.
+
+**TR:** 300 metre kablo yük altında ciddi ısı üretir. Çözüm: Makara, **kesilmiş 19 litrelik bir su damacanasının** içine yerleştirilmiştir. Suyun yüksek ısıl kapasitesi ile pasif soğutma sağlanmıştır.
+
+---
+
+#### Step 2c / Adım 2c — The Impedance Wall & KCL Solution / Empedans Duvarı ve KCL Çözümü
+
+**EN:** The 45 mH inductor creates a frequency-dependent impedance wall that traps the DUT's harmonic currents _inside_ the LC network.
+
+**TR:** 45 mH bobin, DUT'un harmonik akımlarını LC ağı _içinde_ hapseden frekansa bağlı bir empedans duvarı oluşturur.
+
+| Frekans / Frequency       | X_L (bobin/inductor) | X_C (kapasitör/capacitor) | Akım yolu / Current path                                      |
+| ------------------------- | -------------------- | ------------------------- | ------------------------------------------------------------- |
+| 50 Hz (temel/fundamental) | 14.1 Ω               | 72.3 Ω                    | Serbestçe / Freely through L → DUT                            |
+| 250 Hz (5. Harmonik/5th)  | **70.7 Ω**           | **14.4 Ω**                | L tarafından bloke, C'ye sapar / Blocked by L, diverts into C |
+
+**KCL düğüm denklemi / KCL Node equation:**
+
+$$I_{\text{DUT harmonikleri}} = I_{\text{giriş}} - I_{\text{kapasitör}}$$
+$$I_{\text{DUT harmonics}} = I_{\text{input}} - I_{\text{capacitor}}$$
+
+**EN:** CH1 CT measures `I_input`, CH2 CT measures `I_capacitor`. The software subtracts them digitally to reconstruct the DUT's **pure harmonic signature**, isolated from grid pollution.
+
+**TR:** CH1 CT `I_giriş`'i, CH2 CT `I_kapasitör`'ü ölçer. Yazılım bu iki sinyali dijital olarak çıkartarak DUT'un şebeke kirliliğinden arındırılmış **saf harmonik imzasını** elde eder.
+
+---
+
+## 📊 System Diagram / Sistem Diyagramı
+
+```
+        Şebeke / Grid (220V AC — kirli/dirty)
+                     │
+              [LC Filtresi / Filter]      fc = 113 Hz
+              L = 45mH (kablo makara / cable reel)
+              C = 44µF                   ← Su soğutma / Water-cooled
+                     │
+                  Düğüm A ────────── [CT1 → 100Ω → CH1]  I_giriş / I_input
+                  Node A
+             ┌────────┴────────┐
+         [Kapasitör C]       [DUT]
+         [CT2→100Ω→CH2]
+          I_kapasitör / I_capacitor
+
+  DSP:  I_DUT_harmonikleri = CH1 − CH2   (Kirchhoff Akım Yasası / KCL)
+  FFT  →  THD, TDD, IEC 61000-3-2 Class A  PASS / FAIL
+```
+
+---
+
+## 📸 Hardware Gallery / Donanım Galerisi
+
+|                                                                 |                                                            |
+| --------------------------------------------------------------- | ---------------------------------------------------------- |
+| ![CT probes](pic/A.jpeg)                                        | ![Reactor top-down](pic/B.jpeg)                            |
+| CT problar + 100Ω yük dirençleri / CT probes + burden resistors | 300m kablo makarası su soğutmalı / 300m reel, water-cooled |
+| ![Side view](pic/C.jpeg)                                        | ![Full system](pic/D.jpeg)                                 |
+| Yan görünüm / Side view                                         | Tam sistem / Full system                                   |
+
+---
+
+## 🖥️ Software / Yazılım
+
+**EN:** The Python GUI reads dual-channel oscilloscope `.csv` exports and performs full DSP analysis.
+
+**TR:** Python GUI, çift kanallı osiloskop `.csv` dosyalarını okuyarak DSP analizi yapar.
+
+| Özellik / Feature                         | Detay / Detail                                                              |
+| ----------------------------------------- | --------------------------------------------------------------------------- |
+| Çift kanal CSV / Dual-channel CSV         | Rigol formatı, senkronize CH1 + CH2                                         |
+| Akım ölçekleme / Current scaling          | Kanal başına A/V oranı / Per-channel A/V ratio (varsayılan/default: 20 A/V) |
+| Dijital filtreleme / Digital filtering    | Butterworth, Savitzky-Golay, Hareketli ortalama / Moving average            |
+| Diferansiyel sinyal / Differential signal | `CH1 − CH2` yazılımda / computed in software                                |
+| FFT analizi / FFT analysis                | `scipy.fft`, 40. harmoniğe kadar / up to harmonic 40                        |
+| Metrikler / Metrics                       | THD, TDD, RMS, Crest Factor, Power Factor                                   |
+| IEC 61000-3-2 Class A                     | Otomatik PASS/FAIL her harmonik için / Auto PASS/FAIL per harmonic          |
+| Batch işlem / Batch processing            | Birden fazla CSV tek seferde / Multiple CSV files in one run                |
+| Dışa aktarım / Export                     | PNG grafik, TXT rapor, CSV harmonik tablosu                                 |
+
+---
+
+## 🚀 Quick Start / Hızlı Başlangıç
 
 ```bash
+# Bağımlılıkları yükle / Install dependencies
 pip install pandas numpy scipy matplotlib opencv-python pillow
+
+# Uygulamayı başlat / Launch the analyzer
+python analyzer_main.py
+```
+
+**TR — Kullanım Akışı:**
+
+1. CH1 CT'yi giriş düğümüne, CH2 CT'yi kapasitör dalına bağla
+2. Osiloskoptan `.csv` kaydet
+3. Dosyayı yükle → ratio = `20 A/V` → **ANALİZ ET**
+4. DIFF kanalı DUT'un izole harmonik imzasını gösterir
+5. IEC PASS/FAIL raporunu dışa aktar
+
+**EN — Workflow:**
+
+1. Connect CH1 CT to the line input node, CH2 CT to the capacitor branch
+2. Record oscilloscope data as `.csv`
+3. Load the file → set ratio to `20 A/V` → click **Analyse**
+4. The DIFF channel shows the DUT's isolated harmonic signature
+5. Export IEC PASS/FAIL report (H1–H40)
+
+---
+
+## 🔬 Why This Matters / Neden Önemli
+
+**EN:** This setup replicates the **core function of a professional EMC pre-compliance lab** using basic electrical theory (impedance, KCL), off-the-shelf components, and open-source Python DSP. It demonstrates that rigorous engineering does not require expensive equipment — it requires understanding the physics.
+
+**TR:** Bu kurulum, temel elektrik teorisi (empedans, KCL), kolayca bulunabilen bileşenler ve açık kaynaklı Python DSP kullanarak **profesyonel bir EMC ön-uyumluluk laboratuvarının temel işlevini** yerine getirmektedir. Titiz mühendislik için pahalı ekipmana değil, fiziği anlamaya ihtiyaç vardır.
+
+---
+
+## 📄 License / Lisans
+
+MIT — Kullanımı, değiştirmesi ve üzerine inşa etmesi serbesttir / Free to use, modify, and build upon.

@@ -1887,3 +1887,10 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    root = tk.Tk()
+    app = DualCurrentAnalyzer(root)
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
